@@ -1,0 +1,33 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Logs and runtime files
+*.log
+*.pid
+
+# Scala / SBT build outputs
+**/target/
+**/project/target/
+**/project/project/
+**/.bsp/
+**/.bloop/
+**/.metals/
+**/.scala-build/
+**/lib_managed/
+**/src_managed/
+**/classes/
+**/dependency/
+
+# IDE/editor
+.idea/
+.vscode/
+*.iml
+
+# Docker overrides and local data
+docker-compose.override.yml
