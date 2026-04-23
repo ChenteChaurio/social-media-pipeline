@@ -1,11 +1,40 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
+import org.apache.kafka.clients.admin.AdminClient
 
 object TrendDetection {
 
+  // ── Espera a que Kafka esté listo ────────────────────────────
+  def waitForKafka(brokers: String, maxRetries: Int = 10): Unit = {
+    var attempts = 0
+    while (attempts < maxRetries) {
+      try {
+        println(s"[TREND] Intentando conectar a Kafka (intento ${attempts + 1}/$maxRetries)...")
+        val props = new java.util.Properties()
+        props.put("bootstrap.servers", brokers)
+        val admin = org.apache.kafka.clients.admin.AdminClient.create(props)
+        val result = admin.listTopics()
+        result.names().get(5, java.util.concurrent.TimeUnit.SECONDS)
+        admin.close()
+        println("[TREND] ✓ Kafka está listo")
+        return
+      } catch {
+        case _: Exception =>
+          attempts += 1
+          if (attempts < maxRetries) {
+            println(s"[TREND] Kafka no responde, reintentando en 2s...")
+            Thread.sleep(2000)
+          }
+      }
+    }
+    println("[TREND] ✗ Timeout esperando Kafka (continuando de todos modos)")
+  }
+
   def start(spark: SparkSession, kafkaBroker: String): Unit = {
     import spark.implicits._
+
+    waitForKafka(kafkaBroker)
 
     val rawStream = spark.readStream
       .format("kafka")
@@ -40,7 +69,6 @@ object TrendDetection {
         sum(col("likes").cast("int")).as("total_likes")
       )
       .filter(col("post_count") > 5)  // solo hashtags con tracción
-      .orderBy(col("post_count").desc)
 
     // Publica en trending-hashtags
     val query = trends

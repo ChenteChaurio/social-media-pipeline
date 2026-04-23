@@ -10,6 +10,23 @@ Thumbs.db
 # Logs and runtime files
 *.log
 *.pid
+*.out
+*.err
+build.log
+
+# Spark / local data outputs
+spark-warehouse/
+metastore_db/
+derby.log
+checkpoints/
+batch-output/
+output/
+data/
+
+# Kafka / Docker local state
+kafka-data/
+zookeeper-data/
+grafana-data/
 
 # Scala / SBT build outputs
 **/target/
@@ -28,6 +45,7 @@ Thumbs.db
 .idea/
 .vscode/
 *.iml
+.metals/
 
 # Docker overrides and local data
 docker-compose.override.yml

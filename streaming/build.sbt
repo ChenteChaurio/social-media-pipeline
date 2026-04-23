@@ -3,10 +3,10 @@ version := "1.0"
 scalaVersion := "2.12.17"
 
 libraryDependencies ++= Seq(
-  "org.apache.spark"  %% "spark-core"                % "3.4.0" % "provided",
-  "org.apache.spark"  %% "spark-sql"                 % "3.4.0" % "provided",
-  "org.apache.spark"  %% "spark-streaming"           % "3.4.0" % "provided",
-  "org.apache.spark"  %% "spark-sql-kafka-0-10"      % "3.4.0",
+  "org.apache.spark"  %% "spark-core"                % "3.5.8" % "provided",
+  "org.apache.spark"  %% "spark-sql"                 % "3.5.8" % "provided",
+  "org.apache.spark"  %% "spark-streaming"           % "3.5.8" % "provided",
+  "org.apache.spark"  %% "spark-sql-kafka-0-10"      % "3.5.8",
   "com.sun.mail"       % "javax.mail"                % "1.6.2",
   "ch.qos.logback"     % "logback-classic"           % "1.4.7"
 )
