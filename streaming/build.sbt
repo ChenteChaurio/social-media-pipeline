@@ -8,7 +8,8 @@ libraryDependencies ++= Seq(
   "org.apache.spark"  %% "spark-streaming"           % "3.5.8" % "provided",
   "org.apache.spark"  %% "spark-sql-kafka-0-10"      % "3.5.8",
   "com.sun.mail"       % "javax.mail"                % "1.6.2",
-  "ch.qos.logback"     % "logback-classic"           % "1.4.7"
+  "ch.qos.logback"     % "logback-classic"           % "1.4.7",
+  "org.postgresql"     % "postgresql"                % "42.7.1"
 )
 
 assembly / assemblyMergeStrategy := {

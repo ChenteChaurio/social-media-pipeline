@@ -1,6 +1,7 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.DataFrame
 import java.util.Properties
 import javax.mail._
 import javax.mail.internet._
@@ -32,6 +33,36 @@ object AlertDetection {
       }
     }
     println("[ALERTA] ✗ Timeout esperando Kafka (continuando de todos modos)")
+  }
+
+  // ── Función para escribir a PostgreSQL ──────────────────────────
+  def writeToPostgres(batchDF: DataFrame, batchId: Long): Unit = {
+    try {
+      if (batchDF.count() > 0) {
+        val props = new Properties()
+        props.setProperty("driver", "org.postgresql.Driver")
+        props.setProperty("user", "grafana")
+        props.setProperty("password", "grafana")
+
+        // Adaptar DataFrame a la tabla alert_events
+        val dfClean = batchDF.select(
+          col("user").as("username"),
+          col("text"),
+          lit("Contenido sensible detectado").as("alert_reason"),
+          current_timestamp().as("timestamp")
+        )
+
+        dfClean
+          .write
+          .mode("append")
+          .jdbc("jdbc:postgresql://postgres:5432/social_media", "alert_events", props)
+
+        println(s"[ALERTA] ✓ Lote $batchId escrito a PostgreSQL (${batchDF.count()} registros)")
+      }
+    } catch {
+      case e: Exception =>
+        println(s"[ALERTA] ✗ Error escribiendo a PostgreSQL: ${e.getMessage}")
+    }
   }
 
   // ── Palabras clave sensibles (suicidio, autolesión) ────────────
@@ -127,8 +158,18 @@ object AlertDetection {
       .filter(col("text").isNotNull)
       .filter(sensitiveUDF(col("text"), coalesce(col("sensitive"), lit("false"))))
 
-    // Publica alertas en Kafka y envía correos
-    val query = alerts
+    // Escribe a PostgreSQL
+    val postgresQuery = alerts
+      .select("user", "text")
+      .writeStream
+      .trigger(Trigger.ProcessingTime("10 seconds"))
+      .foreachBatch((df: DataFrame, batchId: Long) => writeToPostgres(df, batchId))
+      .option("checkpointLocation", "/tmp/checkpoints/alerts-postgres")
+      .outputMode("append")
+      .start()
+
+    // Publica alertas en Kafka
+    val kafkaQuery = alerts
       .select(
         col("user").as("key"),
         to_json(struct(
@@ -165,6 +206,6 @@ object AlertDetection {
       .start()
 
     println("[ALERTA] Job de detección de alertas iniciado.")
-    query.awaitTermination()
+    kafkaQuery.awaitTermination()
   }
 }

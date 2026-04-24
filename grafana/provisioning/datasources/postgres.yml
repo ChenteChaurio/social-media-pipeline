@@ -1,0 +1,16 @@
+apiVersion: 1
+
+datasources:
+  - name: PostgreSQL
+    type: postgres
+    access: proxy
+    url: postgres:5432
+    database: social_media
+    user: grafana
+    secureJsonData:
+      password: grafana
+    isDefault: true
+    jsonData:
+      sslmode: disable
+      defaultDatabase: social_media
+    editable: true

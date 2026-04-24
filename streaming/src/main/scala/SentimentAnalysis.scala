@@ -1,7 +1,9 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.DataFrame
 import org.apache.kafka.clients.admin.AdminClient
+import java.util.Properties
 
 object SentimentAnalysis {
 
@@ -29,6 +31,36 @@ object SentimentAnalysis {
       }
     }
     println("[SENTIMENT] ✗ Timeout esperando Kafka (continuando de todos modos)")
+  }
+
+  // ── Función para escribir a PostgreSQL ──────────────────────────
+  def writeToPostgres(batchDF: DataFrame, batchId: Long): Unit = {
+    try {
+      if (batchDF.count() > 0) {
+        val props = new Properties()
+        props.setProperty("driver", "org.postgresql.Driver")
+        props.setProperty("user", "grafana")
+        props.setProperty("password", "grafana")
+
+        // Adaptar DataFrame a la tabla sentiment_analysis
+        val dfClean = batchDF.select(
+          col("text"),
+          col("sentiment"),
+          lit(0.8).as("confidence"),
+          current_timestamp().as("timestamp")
+        )
+
+        dfClean
+          .write
+          .mode("append")
+          .jdbc("jdbc:postgresql://postgres:5432/social_media", "sentiment_analysis", props)
+
+        println(s"[SENTIMENT] ✓ Lote $batchId escrito a PostgreSQL (${batchDF.count()} registros)")
+      }
+    } catch {
+      case e: Exception =>
+        println(s"[SENTIMENT] ✗ Error escribiendo a PostgreSQL: ${e.getMessage}")
+    }
   }
 
   // ── Listas de palabras para clasificar sentimiento ──────────────
@@ -88,8 +120,18 @@ object SentimentAnalysis {
       .withColumn("sentiment", sentimentUDF(col("text")))
       .withColumn("score", scoreUDF(col("text")))
 
-    // Publica en sentiment-events
-    val query = withSentiment
+    // Escribe a PostgreSQL
+    val postgresQuery = withSentiment
+      .select("user", "text", "sentiment")
+      .writeStream
+      .trigger(Trigger.ProcessingTime("10 seconds"))
+      .foreachBatch((df: DataFrame, batchId: Long) => writeToPostgres(df, batchId))
+      .option("checkpointLocation", "/tmp/checkpoints/sentiment-postgres")
+      .outputMode("append")
+      .start()
+
+    // Publica en sentiment-events (Kafka)
+    val kafkaQuery = withSentiment
       .select(
         col("user").as("key"),
         to_json(struct(
@@ -110,6 +152,6 @@ object SentimentAnalysis {
       .start()
 
     println("[SENTIMENT] Job de análisis de sentimiento iniciado.")
-    query.awaitTermination()
+    postgresQuery.awaitTermination()
   }
 }

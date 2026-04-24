@@ -1,6 +1,8 @@
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.functions._
 import org.apache.spark.sql.streaming.Trigger
+import org.apache.spark.sql.DataFrame
+import java.util.Properties
 import org.apache.kafka.clients.admin.AdminClient
 
 object TrendDetection {
@@ -29,6 +31,36 @@ object TrendDetection {
       }
     }
     println("[TREND] ✗ Timeout esperando Kafka (continuando de todos modos)")
+  }
+
+  // ── Función para escribir a PostgreSQL ──────────────────────────
+  def writeToPostgres(batchDF: DataFrame, batchId: Long): Unit = {
+    try {
+      if (batchDF.count() > 0) {
+        val props = new Properties()
+        props.setProperty("driver", "org.postgresql.Driver")
+        props.setProperty("user", "grafana")
+        props.setProperty("password", "grafana")
+
+        // Adaptar DataFrame a la tabla trending_hashtags
+        val dfClean = batchDF.select(
+          col("hashtag"),
+          col("post_count").as("total_posts"),
+          col("window_start"),
+          col("window_end")
+        )
+
+        dfClean
+          .write
+          .mode("append")
+          .jdbc("jdbc:postgresql://postgres:5432/social_media", "trending_hashtags", props)
+
+        println(s"[TREND] ✓ Lote $batchId escrito a PostgreSQL (${batchDF.count()} registros)")
+      }
+    } catch {
+      case e: Exception =>
+        println(s"[TREND] ✗ Error escribiendo a PostgreSQL: ${e.getMessage}")
+    }
   }
 
   def start(spark: SparkSession, kafkaBroker: String): Unit = {
@@ -70,8 +102,24 @@ object TrendDetection {
       )
       .filter(col("post_count") > 5)  // solo hashtags con tracción
 
-    // Publica en trending-hashtags
-    val query = trends
+    // Escribe a PostgreSQL
+    val postgresQuery = trends
+      .select(
+        col("hashtag"),
+        col("post_count"),
+        col("total_likes"),
+        col("window.start").as("window_start"),
+        col("window.end").as("window_end")
+      )
+      .writeStream
+      .trigger(Trigger.ProcessingTime("10 seconds"))
+      .foreachBatch((df: DataFrame, batchId: Long) => writeToPostgres(df, batchId))
+      .option("checkpointLocation", "/tmp/checkpoints/trending-postgres")
+      .outputMode("update")
+      .start()
+
+    // Publica en trending-hashtags (Kafka)
+    val kafkaQuery = trends
       .select(
         col("hashtag").as("key"),
         to_json(struct(
@@ -91,6 +139,7 @@ object TrendDetection {
       .outputMode("update")
       .start()
 
-    query.awaitTermination()
+    println("[TREND] Job de detección de tendencias iniciado.")
+    kafkaQuery.awaitTermination()
   }
 }
