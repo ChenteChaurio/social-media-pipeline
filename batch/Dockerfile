@@ -9,9 +9,7 @@ FROM apache/spark:3.5.8
 USER root
 WORKDIR /app
 COPY --from=builder /app/target/scala-2.12/social-media-batch-assembly-1.0.jar app.jar
+COPY run-batch.sh /app/run-batch.sh
+RUN chmod +x /app/run-batch.sh
 
-CMD /opt/spark/bin/spark-submit \
-    --master $SPARK_MASTER \
-    --class BatchAggregations \
-    --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8 \
-    app.jar
+CMD ["/bin/bash", "/app/run-batch.sh"]

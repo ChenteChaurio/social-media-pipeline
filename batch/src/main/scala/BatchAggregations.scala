@@ -6,6 +6,8 @@ object BatchAggregations extends App {
   val spark = SparkSession.builder()
     .appName("BatchAggregations")
     .master(sys.env.getOrElse("SPARK_MASTER", "local[*]"))
+    .config("spark.sql.shuffle.partitions", "2")
+    .config("spark.executor.instances", "1")
     .getOrCreate()
 
   spark.sparkContext.setLogLevel("WARN")
@@ -69,17 +71,6 @@ object BatchAggregations extends App {
     .agg(sum("count"))
     .na.fill(0)
 
-  // ── Guarda resultados en Parquet (formato cloud-ready) ─────────
-  topHashtags
-    .write
-    .mode("overwrite")
-    .parquet(s"$outputPath/top-hashtags")
-
-  sentimentByHashtag
-    .write
-    .mode("overwrite")
-    .parquet(s"$outputPath/sentiment-by-hashtag")
-
   // ── Imprime resumen en consola ─────────────────────────────────
   println("\n===== TOP 10 HASHTAGS =====")
   topHashtags.show()
@@ -87,7 +78,7 @@ object BatchAggregations extends App {
   println("\n===== SENTIMIENTO POR HASHTAG =====")
   sentimentByHashtag.show()
 
-  println(s"\n[BATCH] Resultados guardados en $outputPath")
+  println(s"\n[BATCH] Completado: ${java.time.LocalDateTime.now()}")
 
   spark.stop()
 }

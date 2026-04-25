@@ -12,6 +12,7 @@ COPY --from=builder /app/target/scala-2.12/social-media-streaming-assembly-1.0.j
 
 CMD /opt/spark/bin/spark-submit \
     --master $SPARK_MASTER \
+    --total-executor-cores 4 \
     --class StreamingMain \
     --packages org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.8 \
     app.jar

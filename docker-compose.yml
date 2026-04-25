@@ -60,9 +60,24 @@ services:
     depends_on:
       - spark-master
     environment:
+      - SPARK_WORKER_MEMORY=4G
+      - SPARK_WORKER_CORES=4
+      - SPARK_NO_DAEMONIZE=true
+    volumes:
+      - batch-data:/data       
+
+  spark-worker-2:
+    image: apache/spark:3.5.8
+    container_name: spark-worker-2
+    command: /opt/spark/sbin/start-worker.sh spark://spark-master:7077
+    depends_on:
+      - spark-master
+    environment:
       - SPARK_WORKER_MEMORY=2G
       - SPARK_WORKER_CORES=2
       - SPARK_NO_DAEMONIZE=true
+    volumes:
+      - batch-data:/data      
 
   producer:
     build: ./producer
@@ -124,7 +139,16 @@ services:
       - ./grafana/provisioning/dashboards/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml
       - ./grafana/provisioning/dashboards:/etc/grafana/provisioning/dashboards
       - ./grafana/provisioning/datasources:/etc/grafana/provisioning/datasources
-
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8090:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    depends_on:
+      - kafka
 volumes:
   batch-data:
   grafana-data:
