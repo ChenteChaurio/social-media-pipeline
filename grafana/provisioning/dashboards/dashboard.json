@@ -27,6 +27,7 @@
         "targets": [
           {
             "refId": "A",
+            "rawQuery": true,
             "rawSql": "SELECT hashtag AS metric, total_posts AS value FROM trending_hashtags WHERE window_start >= NOW() - INTERVAL '1 hour' ORDER BY total_posts DESC LIMIT 10",
             "format": "table"
           }
@@ -35,17 +36,24 @@
       {
         "id": 2,
         "title": "Distribución de Sentimientos",
-        "type": "piechart",
+        "type": "barchart",
         "gridPos": { "x": 12, "y": 0, "w": 12, "h": 8 },
         "datasource": "PostgreSQL",
+        "fieldConfig": {
+          "defaults": {
+            "color": { "mode": "palette-classic" },
+            "unit": "short"
+          }
+        },
         "options": {
-          "pieType": "donut",
+          "orientation": "horizontal",
           "legend": { "displayMode": "table", "placement": "right" }
         },
         "targets": [
           {
             "refId": "A",
-            "rawSql": "SELECT sentiment AS metric, COUNT(*) AS value FROM sentiment_analysis WHERE timestamp >= NOW() - INTERVAL '1 hour' GROUP BY sentiment",
+            "rawQuery": true,
+            "rawSql": "SELECT sentiment AS metric, COUNT(*) AS value FROM sentiment_analysis WHERE timestamp >= NOW() - INTERVAL '1 hour' GROUP BY sentiment ORDER BY value DESC",
             "format": "table"
           }
         ]
@@ -65,6 +73,7 @@
         "targets": [
           {
             "refId": "A",
+            "rawQuery": true,
             "rawSql": "SELECT window_start as time, total_posts FROM trending_hashtags WHERE window_start >= NOW() - INTERVAL '1 hour' ORDER BY window_start",
             "format": "timeseries"
           }
@@ -82,6 +91,7 @@
         "targets": [
           {
             "refId": "A",
+            "rawQuery": true,
             "rawSql": "SELECT username, text, alert_reason, timestamp FROM alert_events WHERE timestamp >= NOW() - INTERVAL '1 hour' ORDER BY timestamp DESC LIMIT 20",
             "format": "table"
           }
